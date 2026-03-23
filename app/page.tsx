@@ -31,10 +31,20 @@ interface Question {
 }
 const DEFAULT_Q_FONT_SIZE = 2.5;
 const DEFAULT_E_FONT_SIZE = 1.5;
+const QUESTION_FONT_SCALE = 2;
+const ANSWER_FONT_SCALE = 2;
+
+const stripQuestionPrefix = (text: string) => {
+  const trimmed = text.trim();
+  return trimmed
+    .replace(/^(Міф\s+чи\s+правда)[:\s]*/i, "")
+    .replace(/^(Правда\s+чи\s+міф)([:,]?\s*(що\s*)?)?/i, "")
+    .trim();
+};
 
 const defaultSeedQuestions: Question[] = baseQuestions.map((q, i) => ({
   id: `seed-${i + 1}`,
-  text: q.text,
+  text: stripQuestionPrefix(q.text),
   answer: q.answer,
   explanation: q.explanation,
   qFontSize: DEFAULT_Q_FONT_SIZE,
@@ -914,7 +924,7 @@ export default function GamePage() {
     if (!newText.trim()) return;
     const db = getFirebaseDb();
     const payload = {
-      text: newText.trim(),
+      text: stripQuestionPrefix(newText.trim()),
       answer: newAnswer,
       explanation: newExplanation.trim(),
       qFontSize: newQFontSize,
@@ -1018,7 +1028,7 @@ export default function GamePage() {
     const q = questions[editIndex];
     if (!q) return;
     const updatePayload = {
-      text: editText.trim(),
+      text: stripQuestionPrefix(editText.trim()),
       answer: editAnswer,
       explanation: editExplanation.trim(),
       qFontSize: editQFontSize,
@@ -1184,15 +1194,15 @@ export default function GamePage() {
                 <div className="admin-q-item" key={q.id}>
                   <span className="q-num">{i + 1}</span>
                   <div className="q-content">
-                    <p className="q-text-item">{q.text}</p>
+                    <p className="q-text-item">{stripQuestionPrefix(q.text)}</p>
                     <div className="q-meta">
                       <span className={`q-badge ${q.answer ? "q-badge-true" : "q-badge-false"}`}>
                         {q.answer ? "Правда" : "Мiф"}
                       </span>
                     </div>
                     <div className="q-sizes">
-                      <span>{"Q: " + (q.qFontSize ?? 2.5) + "rem"}</span>
-                      <span>{"A: " + (q.eFontSize ?? 1.5) + "rem"}</span>
+                      <span>{"Q: " + ((q.qFontSize ?? 2.5) * QUESTION_FONT_SCALE).toFixed(2) + "rem"}</span>
+                      <span>{"A: " + ((q.eFontSize ?? 1.5) * ANSWER_FONT_SCALE).toFixed(2) + "rem"}</span>
                     </div>
                   </div>
                   <button className="q-edit" onClick={() => openEdit(i)} title="Редагувати">
@@ -1236,7 +1246,9 @@ export default function GamePage() {
         <div className="question-area">
           {!showExplanation && (
             <div className={`question-card${swipeDir ? " swipe-" + swipeDir : ""}`}>
-              <p className="question-text" style={{ fontSize: (currentQ?.qFontSize ?? 2.5) + "rem" }}>{currentQ?.text || ""}</p>
+              <p className="question-text" style={{ fontSize: ((currentQ?.qFontSize ?? 2.5) * QUESTION_FONT_SCALE) + "rem" }}>
+                {stripQuestionPrefix(currentQ?.text || "")}
+              </p>
             </div>
           )}
 
@@ -1244,7 +1256,7 @@ export default function GamePage() {
             <div className="explanation-box">
               <p
                 className="explanation-text"
-                style={{ fontSize: (currentQ?.eFontSize ?? 1.5) + "rem" }}
+                style={{ fontSize: ((currentQ?.eFontSize ?? 1.5) * ANSWER_FONT_SCALE) + "rem" }}
                 dangerouslySetInnerHTML={{
                   __html: withAnswerHighlight(currentQ?.explanation || "", currentQ?.answer ?? false, currentQ?.noAnswer),
                 }}
