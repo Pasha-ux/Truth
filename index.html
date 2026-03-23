@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebStart: HTML+CSS за 7 днів</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>WebStart: HTML+CSS за 7 днів</h1>
+                </div>
+                <nav class="nav">
+                    <a href="#home" class="nav-link">Головна</a>
+                    <a href="#about" class="nav-link">Про курс</a>
+                    <a href="#contact" class="nav-link">Контакти</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h2 class="hero-title">Почни кар'єру в IT з нуля!</h2>
+                <p class="hero-subtitle">Вивчи HTML та CSS — навіть якщо ніколи не кодив</p>
+                <a href="#contact" class="hero-btn">Записатись на курс</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Course Section -->
+    <section id="about" class="about">
+        <div class="container">
+            <div class="about-content">
+                <h3 class="about-title">Чому обрати наш курс?</h3>
+                <ul class="benefits-list">
+                    <li class="benefit-item">
+                        <div class="benefit-icon">✔️</div>
+                        <span class="benefit-text">Практика з першого дня</span>
+                    </li>
+                    <li class="benefit-item">
+                        <div class="benefit-icon">✔️</div>
+                        <span class="benefit-text">Підтримка ментора</span>
+                    </li>
+                    <li class="benefit-item">
+                        <div class="benefit-icon">✔️</div>
+                        <span class="benefit-text">Сертифікат після завершення</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Form Section -->
+    <section id="contact" class="contact">
+        <div class="container">
+            <div class="contact-content">
+                <h3 class="contact-title">Записатись на курс</h3>
+                <form class="contact-form">
+                    <div class="form-group">
+                        <label for="name">Ім'я</label>
+                        <input type="text" id="name" name="name" placeholder="Введіть ваше ім'я" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" placeholder="Введіть ваш email" required>
+                    </div>
+                    <button type="submit" class="submit-btn">Надіслати</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p class="footer-text">© 2025 WebStart. Всі права захищені.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Правда чи Мiф</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="game.css" />
+</head>
+<body>
+
+  <!-- ===== FLOATING QUESTION MARKS ===== -->
+  <div class="question-marks" aria-hidden="true">
+    <span class="qm qm-green" style="left:5%;top:8%;font-size:60px;animation-delay:0s;animation-duration:4.2s">?</span>
+    <span class="qm qm-red" style="left:18%;top:15%;font-size:50px;animation-delay:0.8s;animation-duration:3.8s">?</span>
+    <span class="qm qm-green" style="left:35%;top:6%;font-size:55px;animation-delay:1.5s;animation-duration:4.5s">?</span>
+    <span class="qm qm-red" style="left:55%;top:10%;font-size:48px;animation-delay:0.3s;animation-duration:3.6s">?</span>
+    <span class="qm qm-green" style="left:75%;top:5%;font-size:65px;animation-delay:2s;animation-duration:4s">?</span>
+    <span class="qm qm-red" style="left:90%;top:12%;font-size:58px;animation-delay:1.2s;animation-duration:4.3s">?</span>
+    <span class="qm qm-green" style="left:8%;top:75%;font-size:52px;animation-delay:0.6s;animation-duration:3.9s">?</span>
+    <span class="qm qm-red" style="left:25%;top:82%;font-size:45px;animation-delay:1.8s;animation-duration:4.1s">?</span>
+    <span class="qm qm-green" style="left:70%;top:78%;font-size:60px;animation-delay:0.4s;animation-duration:3.7s">?</span>
+    <span class="qm qm-red" style="left:88%;top:70%;font-size:68px;animation-delay:1s;animation-duration:4.4s">?</span>
+    <span class="qm qm-green" style="left:45%;top:80%;font-size:42px;animation-delay:2.2s;animation-duration:3.5s">?</span>
+    <span class="qm qm-red" style="left:92%;top:45%;font-size:55px;animation-delay:1.6s;animation-duration:4.2s">?</span>
+  </div>
+
+  <!-- ===== CONFETTI CONTAINER ===== -->
+  <div id="confetti-container" aria-hidden="true"></div>
+
+  <!-- ===== ADMIN BUTTON (invisible, top-left) ===== -->
+  <button id="admin-toggle" class="admin-toggle" aria-label="Редактор питань"></button>
+
+  <!-- ===== ADMIN PANEL (editor) ===== -->
+  <div id="admin-panel" class="admin-panel">
+    <div class="admin-inner">
+      <div class="admin-header">
+        <h2>Редактор питань</h2>
+        <button id="admin-close" class="admin-close-btn">&times;</button>
+      </div>
+
+      <!-- Add new question form -->
+      <div class="admin-form">
+        <h3>Додати питання</h3>
+        <textarea id="new-question-text" placeholder="Текст питання..." rows="3"></textarea>
+        <div class="admin-radio-group">
+          <label class="admin-radio">
+            <input type="radio" name="new-answer" value="true" checked />
+            <span class="radio-label radio-true">Правда</span>
+          </label>
+          <label class="admin-radio">
+            <input type="radio" name="new-answer" value="false" />
+            <span class="radio-label radio-false">Мiф</span>
+          </label>
+        </div>
+        <textarea id="new-question-explanation" placeholder="Пояснення (чому це правда або мiф)..." rows="3"></textarea>
+        <button id="add-question-btn" class="admin-add-btn">Додати питання</button>
+      </div>
+
+      <!-- Existing questions list -->
+      <div class="admin-list-header">
+        <h3>Мої питання</h3>
+        <span id="question-count" class="question-count">0</span>
+      </div>
+      <div id="questions-list" class="admin-questions-list"></div>
+
+      <div class="admin-actions">
+        <button id="clear-all-btn" class="admin-clear-btn">Видалити всi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== START SCREEN ===== -->
+  <div id="screen-start" class="screen screen-start active">
+    <p class="subtitle">iнтерактивна гра</p>
+    <h1 class="main-title">ПРАВДА ЧИ МIФ</h1>
+    <button id="btn-start" class="start-btn">START</button>
+    <p id="no-questions-msg" class="no-questions-msg" style="display:none">
+      Додайте питання через редактор (кнопка злiва зверху)
+    </p>
+  </div>
+
+  <!-- ===== PLAYING SCREEN ===== -->
+  <div id="screen-play" class="screen screen-play">
+    <!-- Progress -->
+    <div class="progress-area">
+      <div class="progress-info">
+        <span id="progress-label">Питання 1 / 10</span>
+        <span id="score-label">Рахунок: 0</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div id="progress-bar" class="progress-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- Question -->
+    <div class="question-area">
+      <div id="question-card" class="question-card">
+        <p id="question-text" class="question-text">Питання?</p>
+      </div>
+
+      <!-- Explanation -->
+      <div id="explanation-box" class="explanation-box" style="display:none">
+        <p id="explanation-text" class="explanation-text"></p>
+        <button id="btn-next" class="next-btn">Далi</button>
+      </div>
+    </div>
+
+    <!-- Answer Buttons -->
+    <div class="answer-area">
+      <button id="btn-truth" class="answer-btn answer-truth">ПРАВДА</button>
+      <span class="answer-divider">/</span>
+      <button id="btn-myth" class="answer-btn answer-myth">МIФ</button>
+    </div>
+  </div>
+
+  <!-- ===== RESULT SCREEN ===== -->
+  <div id="screen-result" class="screen screen-result">
+    <div class="result-card">
+      <h2 class="result-title">Результат</h2>
+      <div class="result-score">
+        <span id="result-score-num" class="result-num">0</span>
+        <span id="result-score-total" class="result-total"> / 0</span>
+      </div>
+      <p id="result-message" class="result-message"></p>
+      <button id="btn-restart" class="restart-btn">Грати знову</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
