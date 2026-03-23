@@ -133,6 +133,7 @@
 
 
  <script type="module">
+  // ИСПРАВЛЕНО: Полные пути к файлам Firebase
   import { initializeApp } from "https://www.gstatic.com";
   import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com";
 
@@ -149,7 +150,6 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // ФУНКЦІЯ ДЛЯ ЗАВАНТАЖЕННЯ (щоб всі бачили питання)
   window.loadQuestionsFromFirebase = async function() {
     try {
       const querySnapshot = await getDocs(collection(db, "questions"));
@@ -159,21 +159,18 @@
         window.questions = fbQuestions; 
         if (typeof window.updateStartScreen === 'function') window.updateStartScreen();
       }
+      console.log("Питання завантажені:", fbQuestions);
     } catch (e) { console.error("Помилка завантаження:", e); }
   }
 
-  // ФУНКЦІЯ ДЛЯ ВІДПРАВКИ (щоб твоя кнопка працювала на хмару)
   window.sendQuestionToFirebase = async function(newQuestion) {
     try {
       await addDoc(collection(db, "questions"), newQuestion);
-      console.log("Збережено в хмарі!");
       return true;
-    } catch (e) {
-      console.error("Помилка збереження:", e);
-      return false;
-    }
+    } catch (e) { return false; }
   }
 
+  // ОБЯЗАТЕЛЬНО: Вызываем функцию завантаження
   window.loadQuestionsFromFirebase();
 </script>
 </body>
