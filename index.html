@@ -132,10 +132,9 @@
 
 
 
-  <script type="module">
-  // ВИПРАВЛЕНО: Додано повні шляхи до бібліотек Firebase
+ <script type="module">
   import { initializeApp } from "https://www.gstatic.com";
-  import { getFirestore, collection, getDocs } from "https://www.gstatic.com";
+  import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com";
 
   const firebaseConfig = {
     apiKey: "AIzaSyB9B4wI37ChDzy3Hm3JO0WveXcieM0_BeE",
@@ -150,30 +149,32 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  async function loadQuestionsFromFirebase() {
+  // ФУНКЦІЯ ДЛЯ ЗАВАНТАЖЕННЯ (щоб всі бачили питання)
+  window.loadQuestionsFromFirebase = async function() {
     try {
       const querySnapshot = await getDocs(collection(db, "questions"));
       const fbQuestions = [];
-      querySnapshot.forEach((doc) => {
-        fbQuestions.push(doc.data());
-      });
-      
+      querySnapshot.forEach((doc) => fbQuestions.push(doc.data()));
       if (fbQuestions.length > 0) {
-        // Оновлюємо глобальну змінну в game.js
         window.questions = fbQuestions; 
-        
-        // Викликаємо функцію оновлення інтерфейсу з game.js
-        if (typeof window.updateStartScreen === 'function') {
-            window.updateStartScreen();
-        }
-        console.log("Питання з Firebase завантажені:", fbQuestions);
+        if (typeof window.updateStartScreen === 'function') window.updateStartScreen();
       }
+    } catch (e) { console.error("Помилка завантаження:", e); }
+  }
+
+  // ФУНКЦІЯ ДЛЯ ВІДПРАВКИ (щоб твоя кнопка працювала на хмару)
+  window.sendQuestionToFirebase = async function(newQuestion) {
+    try {
+      await addDoc(collection(db, "questions"), newQuestion);
+      console.log("Збережено в хмарі!");
+      return true;
     } catch (e) {
-      console.error("Помилка Firebase:", e);
+      console.error("Помилка збереження:", e);
+      return false;
     }
   }
-  
-  loadQuestionsFromFirebase();
+
+  window.loadQuestionsFromFirebase();
 </script>
 </body>
 </html>
