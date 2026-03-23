@@ -4,7 +4,7 @@
 const STORAGE_KEY = "pravda-mif-questions";
 
 // Робимо змінну глобальною для доступу з index.html (Firebase)
-window.questions = loadQuestions();
+window.questions = [];
 let currentIndex = 0;
 let score = 0;
 let answered = false;
@@ -49,24 +49,6 @@ const questionCount = document.getElementById("question-count");
 const clearAllBtn = document.getElementById("clear-all-btn");
 
 /* ===========================
-   STORAGE
-   =========================== */
-function loadQuestions() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (data) {
-      const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch (e) { /* ignore */ }
-  return [];
-}
-
-function saveQuestions() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(window.questions));
-}
-
-/* ===========================
    SCREEN MANAGEMENT
    =========================== */
 function showScreen(screen) {
@@ -77,12 +59,12 @@ function showScreen(screen) {
 }
 
 window.updateStartScreen = function() {
-  if (window.questions.length === 0) {
-    noQuestionsMsg.style.display = "block";
-    btnStart.style.display = "none";
+  if (!window.questions || window.questions.length === 0) {
+    if (noQuestionsMsg) noQuestionsMsg.style.display = "block";
+    if (btnStart) btnStart.style.display = "none";
   } else {
-    noQuestionsMsg.style.display = "none";
-    btnStart.style.display = "";
+    if (noQuestionsMsg) noQuestionsMsg.style.display = "none";
+    if (btnStart) btnStart.style.display = "";
   }
 }
 
@@ -90,7 +72,7 @@ window.updateStartScreen = function() {
    GAME LOGIC
    =========================== */
 window.startGame = function() {
-  if (window.questions.length === 0) return;
+  if (!window.questions || window.questions.length === 0) return;
   currentIndex = 0;
   score = 0;
   answered = false;
@@ -176,7 +158,6 @@ function showResult() {
 }
 
 function restart() {
-  // При рестарті намагаємося підтягнути свіжі дані
   showScreen(screenStart);
   window.updateStartScreen();
 }
@@ -231,8 +212,9 @@ function closeAdmin() {
 }
 
 function renderQuestionsList() {
+  if (!questionsList) return;
   questionsList.innerHTML = "";
-  questionCount.textContent = window.questions.length;
+  if (questionCount) questionCount.textContent = window.questions.length;
 
   if (window.questions.length === 0) {
     questionsList.innerHTML = '<p style="color:rgba(255,255,255,0.25);font-size:0.85rem;text-align:center;padding:1rem 0">Поки що пусто</p>';
@@ -243,8 +225,8 @@ function renderQuestionsList() {
     const item = document.createElement("div");
     item.className = "admin-q-item";
 
-    const badgeClass = q.answer ? "q-badge q-badge-true" : "q-badge q-badge-false";
-    const badgeText = q.answer ? "Правда" : "Мiф";
+    const badgeClass = (q.answer === true || q.answer === "true") ? "q-badge q-badge-true" : "q-badge q-badge-false";
+    const badgeText = (q.answer === true || q.answer === "true") ? "Правда" : "Мiф";
 
     item.innerHTML =
       '<span class="q-num">' + (i + 1) + '</span>' +
@@ -260,10 +242,17 @@ function renderQuestionsList() {
   });
 
   questionsList.querySelectorAll(".q-delete").forEach(function (btn) {
-    btn.addEventListener("click", function () {
+    btn.addEventListener("click", async function () {
       const idx = parseInt(this.getAttribute("data-index"));
+      const questionToDelete = window.questions[idx];
+      
+      // Видаляємо з Firebase, якщо є ID
+      if (questionToDelete.id && typeof window.deleteQuestionFromFirebase === 'function') {
+        await window.deleteQuestionFromFirebase(questionToDelete.id);
+      }
+      
+      // Оновлюємо локальний масив
       window.questions.splice(idx, 1);
-      saveQuestions();
       renderQuestionsList();
       window.updateStartScreen();
     });
@@ -274,43 +263,54 @@ async function addQuestion() {
   const text = newQuestionTextEl.value.trim();
   const explanation = newQuestionExplanationEl.value.trim();
   const answerRadio = document.querySelector('input[name="new-answer"]:checked');
-  const answer = answerRadio.value === "true";
+  const answer = answerRadio ? answerRadio.value === "true" : true;
 
-  if (!text || !explanation) return;
+  if (!text || !explanation) {
+    alert("Будь ласка, заповніть всі поля!");
+    return;
+  }
 
   const newQuestion = {
-    id: Date.now(),
     text: text,
     answer: answer,
     explanation: explanation,
   };
 
-  // --- ЦЕЙ БЛОК ВІДПРАВЛЯЄ ПИТАННЯ В ІНТЕРНЕТ (Firebase) ---
+  // Відправляємо в Firebase
   if (typeof window.sendQuestionToFirebase === 'function') {
     const success = await window.sendQuestionToFirebase(newQuestion);
     if (!success) {
       alert("Помилка: питання не збереглося в хмарі!");
-      return; 
+      return;
     }
+    alert("Питання збережено! Воно з'явиться після оновлення списку.");
+  } else {
+    alert("Помилка: Firebase не підключено!");
+    return;
   }
-  // ------------------------------------------------------
 
-  window.questions.push(newQuestion);
-  saveQuestions();
-  renderQuestionsList();
-  window.updateStartScreen();
-
+  // Очищаємо форму
   newQuestionTextEl.value = "";
   newQuestionExplanationEl.value = "";
-  alert("Питання збережено в базу для всіх!");
+  
+  // Перезавантажуємо питання з Firebase
+  if (typeof window.loadQuestionsFromFirebase === 'function') {
+    await window.loadQuestionsFromFirebase();
+  }
+  
+  renderQuestionsList();
+  window.updateStartScreen();
 }
  
 function clearAllQuestions() {
   if (window.questions.length === 0) return;
-  window.questions = [];
-  saveQuestions();
-  renderQuestionsList();
-  window.updateStartScreen();
+  
+  if (confirm("Ви впевнені, що хочете видалити ВСІ питання? Цю дію не можна скасувати.")) {
+    window.questions = [];
+    renderQuestionsList();
+    window.updateStartScreen();
+    alert("Всі питання видалено з локального сховища.");
+  }
 }
 
 function escapeHtml(str) {
@@ -322,16 +322,16 @@ function escapeHtml(str) {
 /* ===========================
    EVENT LISTENERS
    =========================== */
-btnStart.addEventListener("click", window.startGame);
-btnTruth.addEventListener("click", function () { handleAnswer(true); });
-btnMyth.addEventListener("click", function () { handleAnswer(false); });
-btnNext.addEventListener("click", nextQuestion);
-btnRestart.addEventListener("click", restart);
+if (btnStart) btnStart.addEventListener("click", window.startGame);
+if (btnTruth) btnTruth.addEventListener("click", function () { handleAnswer(true); });
+if (btnMyth) btnMyth.addEventListener("click", function () { handleAnswer(false); });
+if (btnNext) btnNext.addEventListener("click", nextQuestion);
+if (btnRestart) btnRestart.addEventListener("click", restart);
 
-adminToggle.addEventListener("click", toggleAdmin);
-adminClose.addEventListener("click", closeAdmin);
-addQuestionBtn.addEventListener("click", addQuestion);
-clearAllBtn.addEventListener("click", clearAllQuestions);
+if (adminToggle) adminToggle.addEventListener("click", toggleAdmin);
+if (adminClose) adminClose.addEventListener("click", closeAdmin);
+if (addQuestionBtn) addQuestionBtn.addEventListener("click", addQuestion);
+if (clearAllBtn) clearAllBtn.addEventListener("click", clearAllQuestions);
 
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") closeAdmin();

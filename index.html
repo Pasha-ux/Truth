@@ -133,44 +133,76 @@
 
 
  <script type="module">
-  // ИСПРАВЛЕНО: Полные пути к файлам Firebase
-  import { initializeApp } from "https://www.gstatic.com";
-  import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com";
+  // ПРАВИЛЬНІ URL для Firebase
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
   const firebaseConfig = {
-    apiKey: "AIzaSyB9B4wI37ChDzy3Hm3JO0WveXcieM0_BeE",
+    apiKey: "AIzaSyB9B4wI37ChDzy3Hm3J00WveXcieM0_BeE",
     authDomain: "truth-38839.firebaseapp.com",
     projectId: "truth-38839",
     storageBucket: "truth-38839.firebasestorage.app",
-    messagingSenderId: "1093126227926",
-    appId: "1:1093126227926:web:a85012e26265837ef84677",
+    messagingSenderId: "109312627926",
+    appId: "1:109312627926:web:485012e26265837ef84677",
     measurementId: "G-40VZXCCGTC"
   };
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
+  // Функція завантаження питань з Firebase
   window.loadQuestionsFromFirebase = async function() {
     try {
       const querySnapshot = await getDocs(collection(db, "questions"));
       const fbQuestions = [];
-      querySnapshot.forEach((doc) => fbQuestions.push(doc.data()));
+      querySnapshot.forEach((doc) => {
+        fbQuestions.push({ id: doc.id, ...doc.data() });
+      });
+      
       if (fbQuestions.length > 0) {
-        window.questions = fbQuestions; 
+        window.questions = fbQuestions;
         if (typeof window.updateStartScreen === 'function') window.updateStartScreen();
+        if (typeof window.updateQuestionsList === 'function') window.updateQuestionsList(fbQuestions);
+      } else {
+        // Якщо питань немає, використовуємо стандартні
+        window.questions = [
+          { text: "Кавун — це ягода?", answer: true, explanation: "Так, ботанічно кавун вважається ягодою (гарбузиною)" },
+          { text: "Верблюди зберігають воду в горбах?", answer: false, explanation: "В горбах верблюди зберігають жир, а не воду" }
+        ];
       }
       console.log("Питання завантажені:", fbQuestions);
-    } catch (e) { console.error("Помилка завантаження:", e); }
-  }
+      return fbQuestions;
+    } catch (e) { 
+      console.error("Помилка завантаження:", e);
+      return [];
+    }
+  };
 
+  // Функція додавання питання
   window.sendQuestionToFirebase = async function(newQuestion) {
     try {
-      await addDoc(collection(db, "questions"), newQuestion);
+      const docRef = await addDoc(collection(db, "questions"), newQuestion);
+      console.log("Питання додано з ID:", docRef.id);
       return true;
-    } catch (e) { return false; }
-  }
+    } catch (e) { 
+      console.error("Помилка додавання:", e);
+      return false;
+    }
+  };
 
-  // ОБЯЗАТЕЛЬНО: Вызываем функцию завантаження
+  // Функція видалення питання
+  window.deleteQuestionFromFirebase = async function(questionId) {
+    try {
+      await deleteDoc(doc(db, "questions", questionId));
+      console.log("Питання видалено:", questionId);
+      return true;
+    } catch (e) {
+      console.error("Помилка видалення:", e);
+      return false;
+    }
+  };
+
+  // Завантажуємо питання при старті
   window.loadQuestionsFromFirebase();
 </script>
 </body>
