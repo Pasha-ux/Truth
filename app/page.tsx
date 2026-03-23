@@ -1,12 +1,27 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import {
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
+import { getFirebaseDb } from "@/lib/firebase";
+import { questions as baseQuestions } from "@/lib/questions";
 
 /* ============================
    TYPES
    ============================ */
 interface Question {
-  id: number;
+  id: string;
   text: string;
   answer: boolean;
   explanation: string;
@@ -14,8 +29,28 @@ interface Question {
   eFontSize: number;
   noAnswer?: boolean; // skip mode — just show "Далi" instead of Правда/Міф
 }
+const DEFAULT_Q_FONT_SIZE = 2.5;
+const DEFAULT_E_FONT_SIZE = 1.5;
 
-const STORAGE_KEY = "pravda-mif-questions";
+const defaultSeedQuestions: Question[] = baseQuestions.map((q, i) => ({
+  id: `seed-${i + 1}`,
+  text: q.text,
+  answer: q.answer,
+  explanation: q.explanation,
+  qFontSize: DEFAULT_Q_FONT_SIZE,
+  eFontSize: DEFAULT_E_FONT_SIZE,
+  noAnswer: q.noAnswer ?? false,
+}));
+
+const normalizeQuestion = (id: string, data: Record<string, unknown>): Question => ({
+  id,
+  text: typeof data.text === "string" ? data.text : "",
+  answer: Boolean(data.answer),
+  explanation: typeof data.explanation === "string" ? data.explanation : "",
+  qFontSize: typeof data.qFontSize === "number" ? data.qFontSize : DEFAULT_Q_FONT_SIZE,
+  eFontSize: typeof data.eFontSize === "number" ? data.eFontSize : DEFAULT_E_FONT_SIZE,
+  noAnswer: Boolean(data.noAnswer),
+});
 
 /* ============================
    CONFETTI HELPER
@@ -131,6 +166,24 @@ body::before {
   z-index: 200; background: transparent; border: none; cursor: pointer; opacity: 0;
 }
 .admin-toggle:hover { opacity: 0.08; background: white; }
+
+/* ===== REFRESH BUTTON ===== */
+.refresh-btn {
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.06);
+  color: #fff;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: background 0.2s, border-color 0.2s;
+}
+.refresh-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.35); }
 
 /* ===== ADMIN PANEL ===== */
 .admin-panel {
@@ -348,7 +401,7 @@ body::before {
 }
 .inline-next-btn:hover { background: rgba(255,255,255,0.18); }
 
-.admin-actions { text-align: center; }
+.admin-actions { text-align: center; display: flex; flex-direction: column; gap: 0.5rem; }
 
 .admin-clear-btn {
   background: none; border: 1px solid rgba(239,68,68,0.3); color: #ef4444;
@@ -456,6 +509,13 @@ body::before {
   border-radius: 16px; padding: 2rem 2.5rem; backdrop-filter: blur(4px);
   text-align: center; animation: fade-up 0.5s ease-out forwards;
 }
+
+.answer-inline {
+  font-weight: 900;
+  font-size: 1.05em;
+}
+.answer-inline.truth { color: #22c55e; text-shadow: 0 0 10px rgba(34,197,94,0.35); }
+.answer-inline.myth { color: #ef4444; text-shadow: 0 0 10px rgba(239,68,68,0.35); }
 
 .explanation-text {
   font-size: clamp(1.1rem, 3vw, 1.5rem); color: rgba(255,255,255,0.7); line-height: 1.7; margin-bottom: 1.25rem;
@@ -671,28 +731,70 @@ export default function GamePage() {
   const truthBtnRef = useRef<HTMLButtonElement>(null);
   const mythBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Load questions from localStorage
+  // Load questions from Firebase (shared) or fall back to defaults
   useEffect(() => {
-    try {
-      const data = localStorage.getItem(STORAGE_KEY);
-      if (data) {
-        const parsed = JSON.parse(data);
-        if (Array.isArray(parsed)) setQuestions(parsed);
+    let unsub: (() => void) | null = null;
+    let cancelled = false;
+
+    const init = async () => {
+      const db = getFirebaseDb();
+      if (!db) {
+        setQuestions(defaultSeedQuestions);
+        return;
       }
-    } catch {
-      /* ignore */
-    }
+
+      const colRef = collection(db, "questions");
+
+      try {
+        const snap = await getDocs(colRef);
+        if (snap.empty) {
+          await Promise.all(
+            defaultSeedQuestions.map((q) =>
+              setDoc(
+                doc(colRef, q.id),
+                {
+                  text: q.text,
+                  answer: q.answer,
+                  explanation: q.explanation,
+                  qFontSize: q.qFontSize,
+                  eFontSize: q.eFontSize,
+                  noAnswer: q.noAnswer ?? false,
+                  createdAt: serverTimestamp(),
+                },
+                { merge: true }
+              )
+            )
+          );
+        }
+      } catch {
+        if (!cancelled) setQuestions(defaultSeedQuestions);
+      }
+
+      const q = query(colRef, orderBy("createdAt", "asc"));
+      unsub = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs.map((d) => normalizeQuestion(d.id, d.data()));
+          if (!cancelled) setQuestions(items);
+        },
+        () => {
+          if (!cancelled) setQuestions(defaultSeedQuestions);
+        }
+      );
+    };
+
+    init();
+
     // Preload audio
     correctAudioRef.current = new Audio("/sounds/correct.mp3");
     wrongAudioRef.current = new Audio("/sounds/wrong.mp3");
     correctAudioRef.current.preload = "auto";
     wrongAudioRef.current.preload = "auto";
-  }, []);
 
-  // Save questions to localStorage
-  const saveQuestions = useCallback((qs: Question[]) => {
-    setQuestions(qs);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(qs));
+    return () => {
+      cancelled = true;
+      if (unsub) unsub();
+    };
   }, []);
 
   /* ---- HIGHLIGHT HELPER ---- */
@@ -721,6 +823,17 @@ export default function GamePage() {
       el.focus();
       el.setSelectionRange(start, start + replacement.length);
     }, 0);
+  };
+
+  const withAnswerHighlight = (html: string, answer: boolean, noAnswer?: boolean) => {
+    if (noAnswer) return html;
+    const trimmed = html.trim();
+    const match = trimmed.match(/^(Міф|Мiф|Правда)([.!:])?\s*/i);
+    if (!match) return html;
+    const word = match[1];
+    const rest = trimmed.slice(match[0].length);
+    const cls = answer ? "truth" : "myth";
+    return `<span class="answer-inline ${cls}">${word}:</span> ${rest}`.trim();
   };
 
   /* ---- GAME LOGIC ---- */
@@ -797,28 +910,96 @@ export default function GamePage() {
   };
 
   /* ---- ADMIN ---- */
-  const addQuestion = () => {
+  const addQuestion = async () => {
     if (!newText.trim()) return;
-    const updated = [
-      ...questions,
-      { id: Date.now(), text: newText.trim(), answer: newAnswer, explanation: newExplanation.trim(), qFontSize: newQFontSize, eFontSize: newEFontSize, noAnswer: newNoAnswer },
-    ];
-    saveQuestions(updated);
+    const db = getFirebaseDb();
+    const payload = {
+      text: newText.trim(),
+      answer: newAnswer,
+      explanation: newExplanation.trim(),
+      qFontSize: newQFontSize,
+      eFontSize: newEFontSize,
+      noAnswer: newNoAnswer,
+      createdAt: serverTimestamp(),
+    };
+
+    if (db) {
+      await addDoc(collection(db, "questions"), payload);
+    } else {
+      const localQuestion: Question = {
+        id: `local-${Date.now()}`,
+        text: payload.text,
+        answer: payload.answer,
+        explanation: payload.explanation,
+        qFontSize: payload.qFontSize,
+        eFontSize: payload.eFontSize,
+        noAnswer: payload.noAnswer,
+      };
+      setQuestions((prev) => [...prev, localQuestion]);
+    }
+
     setNewText("");
     setNewExplanation("");
     setNewAnswer(true);
-    setNewQFontSize(2.5);
-    setNewEFontSize(1.5);
+    setNewQFontSize(DEFAULT_Q_FONT_SIZE);
+    setNewEFontSize(DEFAULT_E_FONT_SIZE);
     setNewNoAnswer(false);
   };
 
-  const deleteQuestion = (idx: number) => {
-    const updated = questions.filter((_, i) => i !== idx);
-    saveQuestions(updated);
+  const deleteQuestion = async (idx: number) => {
+    const q = questions[idx];
+    if (!q) return;
+    const db = getFirebaseDb();
+    if (db) {
+      await deleteDoc(doc(db, "questions", q.id));
+    } else {
+      setQuestions((prev) => prev.filter((_, i) => i !== idx));
+    }
   };
 
-  const clearAll = () => {
-    saveQuestions([]);
+  const clearAll = async () => {
+    const db = getFirebaseDb();
+    if (db) {
+      const snap = await getDocs(collection(db, "questions"));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+    } else {
+      setQuestions([]);
+    }
+  };
+
+  const refreshQuestions = async () => {
+    const ok = window.confirm("Оновити питання? Поточний список буде замінено базовим.");
+    if (!ok) return;
+    const db = getFirebaseDb();
+    if (db) {
+      const colRef = collection(db, "questions");
+      const snap = await getDocs(colRef);
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+      await Promise.all(
+        defaultSeedQuestions.map((q) =>
+          setDoc(
+            doc(colRef, q.id),
+            {
+              text: q.text,
+              answer: q.answer,
+              explanation: q.explanation,
+              qFontSize: q.qFontSize,
+              eFontSize: q.eFontSize,
+              noAnswer: q.noAnswer ?? false,
+              createdAt: serverTimestamp(),
+            },
+            { merge: true }
+          )
+        )
+      );
+    } else {
+      setQuestions(defaultSeedQuestions);
+    }
+    setScreen("start");
+    setCurrentIndex(0);
+    setScore(0);
+    setAnswered(false);
+    setShowExplanation(false);
   };
 
   const openEdit = (idx: number) => {
@@ -827,19 +1008,32 @@ export default function GamePage() {
     setEditText(q.text);
     setEditAnswer(q.answer);
     setEditExplanation(q.explanation);
-    setEditQFontSize(q.qFontSize ?? 2.5);
-    setEditEFontSize(q.eFontSize ?? 1.5);
+    setEditQFontSize(q.qFontSize ?? DEFAULT_Q_FONT_SIZE);
+    setEditEFontSize(q.eFontSize ?? DEFAULT_E_FONT_SIZE);
     setEditNoAnswer(q.noAnswer ?? false);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (editIndex === null) return;
-    const updated = questions.map((q, i) =>
-      i === editIndex
-        ? { ...q, text: editText.trim(), answer: editAnswer, explanation: editExplanation.trim(), qFontSize: editQFontSize, eFontSize: editEFontSize, noAnswer: editNoAnswer }
-        : q
-    );
-    saveQuestions(updated);
+    const q = questions[editIndex];
+    if (!q) return;
+    const updatePayload = {
+      text: editText.trim(),
+      answer: editAnswer,
+      explanation: editExplanation.trim(),
+      qFontSize: editQFontSize,
+      eFontSize: editEFontSize,
+      noAnswer: editNoAnswer,
+    };
+
+    const db = getFirebaseDb();
+    if (db) {
+      await updateDoc(doc(db, "questions", q.id), updatePayload);
+    } else {
+      setQuestions((prev) =>
+        prev.map((item, i) => (i === editIndex ? { ...item, ...updatePayload } : item))
+      );
+    }
     setEditIndex(null);
   };
 
@@ -1013,6 +1207,9 @@ export default function GamePage() {
           </div>
 
           <div className="admin-actions">
+            <button className="refresh-btn" onClick={refreshQuestions}>
+              Оновити питання
+            </button>
             <button className="admin-clear-btn" onClick={clearAll}>
               Видалити всi
             </button>
@@ -1048,7 +1245,9 @@ export default function GamePage() {
               <p
                 className="explanation-text"
                 style={{ fontSize: (currentQ?.eFontSize ?? 1.5) + "rem" }}
-                dangerouslySetInnerHTML={{ __html: currentQ?.explanation || "" }}
+                dangerouslySetInnerHTML={{
+                  __html: withAnswerHighlight(currentQ?.explanation || "", currentQ?.answer ?? false, currentQ?.noAnswer),
+                }}
               />
             </div>
           )}
