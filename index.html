@@ -234,5 +234,19 @@
   // АВТОМАТИЧНЕ ЗАВАНТАЖЕННЯ ПИТАНЬ ПРИ СТАРТІ
   window.loadQuestionsFromFirebase();
 </script>
+<script>
+  // Діагностика після завантаження сторінки
+  setTimeout(function() {
+    console.log('=== ДІАГНОСТИКА ===');
+    console.log('window.questions:', window.questions);
+    console.log('window.questions.length:', window.questions?.length);
+    console.log('typeof loadQuestionsFromFirebase:', typeof window.loadQuestionsFromFirebase);
+    console.log('typeof updateStartScreen:', typeof window.updateStartScreen);
+    
+    if (window.questions?.length === 0) {
+      console.error('ПИТАНЬ НЕМАЄ! Перевірте Firebase підключення');
+    }
+  }, 2000);
+</script>
 </body>
 </html>
